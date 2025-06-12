@@ -1,74 +1,160 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-    provider = "postgresql"
-    // NOTE: When using mysql or sqlserver, uncomment the @db.Text annotations in model Account below
-    // Further reading:
-    // https://next-auth.js.org/adapters/prisma#create-the-prisma-schema
-    // https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#string
-    url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
-model Post {
-    id        Int      @id @default(autoincrement())
-    name      String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    createdBy   User   @relation(fields: [createdById], references: [id])
-    createdById String
-
-    @@index([name])
+// user & auth
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  players       Player[]
+  sessions      Session[]
 }
 
-// Necessary for Next auth
 model Account {
-    id                       String  @id @default(cuid())
-    userId                   String
-    type                     String
-    provider                 String
-    providerAccountId        String
-    refresh_token            String? // @db.Text
-    access_token             String? // @db.Text
-    expires_at               Int?
-    token_type               String?
-    scope                    String?
-    id_token                 String? // @db.Text
-    session_state            String?
-    user                     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-    refresh_token_expires_in Int?
+  id                       String  @id @default(uuid()) @db.Uuid
+  userId                   String  @db.Uuid
+  type                     String
+  provider                 String
+  providerAccountId        String
+  refresh_token            String?
+  access_token             String?
+  expires_at               Int?
+  token_type               String?
+  scope                    String?
+  id_token                 String?
+  session_state            String?
+  refresh_token_expires_in Int?
+  user                     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isAdmin                  Boolean @default(false)
+  isBanned                 Boolean @default(false)
+  isHidden                 Boolean @default(false)
 
-    @@unique([provider, providerAccountId])
+  @@unique([provider, providerAccountId])
 }
 
 model Session {
-    id           String   @id @default(cuid())
-    sessionToken String   @unique
-    userId       String
-    expires      DateTime
-    user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model User {
-    id            String    @id @default(cuid())
-    name          String?
-    email         String?   @unique
-    emailVerified DateTime?
-    image         String?
-    accounts      Account[]
-    sessions      Session[]
-    posts         Post[]
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String   @db.Uuid
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
-    identifier String
-    token      String   @unique
-    expires    DateTime
+  identifier String
+  token      String   @unique
+  expires    DateTime
 
-    @@unique([identifier, token])
+  @@unique([identifier, token])
+}
+
+// level
+model Level {
+  id           BigInt           @id @default(autoincrement())
+  name         String?          @default("N/a") @db.VarChar
+  creator      String?          @default("N/a") @db.VarChar
+  videoID      String?          @default("N/a") @db.VarChar
+  minProgress  BigInt?          @default(100)
+  top          Float?
+  rating       BigInt?
+  songID       BigInt?
+  createdAt    DateTime         @default(now()) @db.Timestamptz(6)
+  isPlatformer Boolean          @default(false)
+  records      Record[]
+  levelDeaths  LevelDeathCount?
+}
+
+model LevelDeathCount {
+  levelID BigInt   @id
+  count   BigInt[]
+  level   Level    @relation(fields: [levelID], references: [id], onDelete: Cascade)
+}
+
+// player
+model Player {
+  id              BigInt         @id @default(autoincrement())
+  name            String         @unique
+  email           String?        @unique @db.VarChar
+  avatar          String?        @db.VarChar
+  totalPt         Float?
+  maxPt           BigInt?
+  rank            BigInt?
+  overallRank     BigInt?
+  uid             String         @unique @db.Uuid
+  rating          Float?         @default(0)
+  reviewCooldown  DateTime?      @db.Timestamptz(6)
+  renameCooldown  DateTime       @default(dbgenerated("'2020-06-09 14:03:33.297+00'::timestamp with time zone")) @db.Timestamptz(6)
+  recordCount     BigInt         @default(0)
+  exp             BigInt         @default(0)
+  extraExp        BigInt?
+  deathCounts     DeathCount[]
+  eventProofs     EventProof[]
+  notifications   Notification[]
+  recordsCreated  Record[]       @relation("RecordsByUser")
+  recordsReviewed Record[]       @relation("RecordsByReviewer")
+  user            User           @relation(fields: [uid], references: [id], onDelete: Cascade)
+}
+
+// records
+model Record {
+  userid          String   @db.Uuid
+  levelid         BigInt
+  videoLink       String?  @db.VarChar
+  refreshRate     BigInt?  @default(60)
+  progress        BigInt?  @default(0)
+  timestamp       BigInt?  @default(0)
+  pt              Float?
+  mobile          Boolean  @default(false)
+  isChecked       Boolean? @default(false)
+  comment         String?  @db.VarChar
+  reviewer        String?  @db.Uuid
+  needMod         Boolean  @default(false)
+  reviewerComment String?
+  raw             String?  @default("")
+  time            BigInt?
+  level           Level    @relation(fields: [levelid], references: [id], onDelete: Cascade)
+  player          Player   @relation("RecordsByUser", fields: [userid], references: [uid], onDelete: Cascade)
+  reviewerPlayer  Player?  @relation("RecordsByReviewer", fields: [reviewer], references: [uid])
+
+  @@id([userid, levelid])
+}
+
+model DeathCount {
+  levelID       BigInt
+  uid           String    @db.Uuid
+  count         BigInt[]
+  completedTime DateTime? @db.Timestamptz(6)
+  player        Player    @relation(fields: [uid], references: [uid], onDelete: Cascade)
+
+  @@id([levelID, uid])
+}
+
+model EventProof {
+  userid    String   @db.Uuid
+  eventID   BigInt
+  content   String   @default("")
+  accepted  Boolean  @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  player    Player   @relation(fields: [userid], references: [uid], onDelete: Cascade)
+
+  @@id([userid, eventID])
+}
+
+model Notification {
+  id        BigInt   @id @default(autoincrement())
+  content   String?
+  to        String   @db.Uuid
+  status    BigInt   @default(0)
+  timestamp DateTime @default(now()) @db.Timestamptz(6)
+  redirect  String?
+  player    Player   @relation(fields: [to], references: [uid], onDelete: NoAction, onUpdate: NoAction)
 }
