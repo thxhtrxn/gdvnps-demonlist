@@ -5,28 +5,28 @@ import { useState } from "react";
 import { api } from "@/trpc/react";
 
 export function LatestPost() {
-  const [latestPost] = api.post.getLatest.useSuspenseQuery();
+  const [latestLevel] = api.level.getLatest.useSuspenseQuery();
 
   const utils = api.useUtils();
   const [name, setName] = useState("");
-  const createPost = api.post.create.useMutation({
+  const createLevel = api.level.create.useMutation({
     onSuccess: async () => {
-      await utils.post.invalidate();
+      await utils.level.invalidate();
       setName("");
     },
   });
 
   return (
     <div className="w-full max-w-xs">
-      {latestPost ? (
-        <p className="truncate">Your most recent post: {latestPost.name}</p>
+      {latestLevel ? (
+        <p className="truncate">Your most recent level: {latestLevel.name}</p>
       ) : (
-        <p>You have no posts yet.</p>
+        <p>You have no levels yet.</p>
       )}
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          createPost.mutate({ name });
+          createLevel.mutate({ name });
         }}
         className="flex flex-col gap-2"
       >
@@ -40,9 +40,9 @@ export function LatestPost() {
         <button
           type="submit"
           className="rounded-full bg-white/10 px-10 py-3 font-semibold transition hover:bg-white/20"
-          disabled={createPost.isPending}
+          disabled={createLevel.isPending}
         >
-          {createPost.isPending ? "Submitting..." : "Submit"}
+          {createLevel.isPending ? "Submitting..." : "Submit"}
         </button>
       </form>
     </div>
