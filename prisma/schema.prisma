@@ -18,7 +18,6 @@ model User {
   players       Player[]
   sessions      Session[]
 
-  @@unique([id, name])
 }
 
 model Account {
@@ -103,7 +102,7 @@ model Player {
   notifications   Notification[]
   recordsCreated  Record[]       @relation("RecordsByUser")
   recordsReviewed Record[]       @relation("RecordsByReviewer")
-  user            User           @relation(fields: [uid, name], references: [id, name], onDelete: Cascade)
+  user            User           @relation(fields: [uid], references: [id], onDelete: Cascade)
 }
 
 // records
